@@ -1,0 +1,63 @@
+// Load Nairobi district boundary from the GAUL dataset
+var kenya = ee.FeatureCollection('FAO/GAUL/2015/level2');
+var nairobi = kenya.filter(ee.Filter.and(
+  ee.Filter.eq('ADM1_NAME', 'Nairobi'), // State/County is Nairobi
+  ee.Filter.eq('ADM2_NAME', 'Nairobi') // District is Nairobi
+));
+
+// Get the Sentinel-5P SO2 data collection for the specified date ranges (2019, 2022, 2023, 2024)
+var collection = ee.ImageCollection('COPERNICUS/S5P/OFFL/L3_SO2')
+  .select('SO2_column_number_density')
+  .filterDate('2019-06-01', '2019-06-11') // Time range for 2019
+  .merge(
+    ee.ImageCollection('COPERNICUS/S5P/OFFL/L3_SO2')
+      .select('SO2_column_number_density')
+      .filterDate('2022-06-01', '2022-06-11') // Time range for 2022
+  )
+  .merge(
+    ee.ImageCollection('COPERNICUS/S5P/OFFL/L3_SO2')
+      .select('SO2_column_number_density')
+      .filterDate('2023-06-01', '2023-06-11') // Time range for 2023
+  )
+  .merge(
+    ee.ImageCollection('COPERNICUS/S5P/OFFL/L3_SO2')
+      .select('SO2_column_number_density')
+      .filterDate('2024-06-01', '2024-06-11') // Time range for 2024
+  )
+  .filterBounds(nairobi); // Filter by Nairobi district's boundary
+
+// Clip the data to the Nairobi district boundary
+var clippedCollection = collection.map(function(image) {
+  return image.clip(nairobi);
+});
+
+// Define visualization parameters for SO2
+var bandViz = {
+  min: 0.0,
+  max: 0.0005,
+  palette: ['black', 'blue', 'purple', 'cyan', 'green', 'yellow', 'red']
+};
+
+// Add the clipped mean SO2 layer to the map with visualization parameters
+Map.addLayer(clippedCollection.mean(), bandViz, 'S5P SO2 - Nairobi');
+
+// Load population data (WorldPop dataset)
+var population = ee.ImageCollection('WorldPop/GP/100m/pop')
+  .filterBounds(nairobi) // Filter population data by Nairobi district
+  .select('population'); // Select the population band
+
+// Clip population data to Nairobi boundary
+var clippedPopulation = population.mean().clip(nairobi);
+
+// Define visualization parameters for population data
+var popViz = {
+  min: 0,
+  max: 1000000,
+  palette: ['white', 'blue', 'green', 'yellow', 'red']
+};
+
+// Add the population layer to the map
+Map.addLayer(clippedPopulation, popViz, 'Population - Nairobi');
+
+// Set the map's center and zoom level to Nairobi district
+Map.setCenter(36.8219, -1.2921, 10); // Longitude, Latitude, Zoom level
